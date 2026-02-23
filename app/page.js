@@ -1,6 +1,7 @@
 'use client';
 
 import { useState, useEffect, useCallback } from 'react';
+import QRCode from 'qrcode';
 
 // ── Defaults ──
 
@@ -190,8 +191,19 @@ export default function Home() {
   const handleGenerate = async () => {
     const ics = generateICS();
     if (!ics) return;
-    const encoded = encodeURIComponent(ics);
-    setQrUrl(`https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encoded}`);
+
+    // Generate QR code client-side — no data leaves the device
+    try {
+      const dataUrl = await QRCode.toDataURL(ics, {
+        width: 300,
+        margin: 2,
+        errorCorrectionLevel: 'M',
+      });
+      setQrUrl(dataUrl);
+    } catch (err) {
+      console.error('QR generation failed:', err);
+      return;
+    }
 
     // Advance round-robin and save
     const newIndexes = { ...indexes };
@@ -219,6 +231,16 @@ export default function Home() {
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  const downloadQR = () => {
+    if (!qrUrl) return;
+    const a = document.createElement('a');
+    a.href = qrUrl;
+    a.download = `${eventTitle.replace(/[^a-z0-9]/gi, '_')}_qr.png`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
   };
 
   const formatDisplayDate = () => {
@@ -410,9 +432,8 @@ export default function Home() {
         </button>
         <div className="flex items-center gap-2">
           <button onClick={(e) => { e.stopPropagation(); downloadICS(); }} className="px-3 py-1 text-xs text-gray-500 hover:bg-gray-200 rounded transition">.ics</button>
-          <a href={qrUrl} download={`${eventTitle.replace(/[^a-z0-9]/gi, '_')}_qr.png`}
-            onClick={(e) => e.stopPropagation()}
-            className="px-3 py-1 text-xs text-gray-500 hover:bg-gray-200 rounded transition">Save QR</a>
+          <button onClick={(e) => { e.stopPropagation(); downloadQR(); }}
+            className="px-3 py-1 text-xs text-gray-500 hover:bg-gray-200 rounded transition">Save QR</button>
         </div>
       </div>
 
